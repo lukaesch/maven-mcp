@@ -1,0 +1,70 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/mcpb-manifest.schema.json",
+  "manifest_version": "0.3",
+  "name": "maven-mcp",
+  "version": "0.1.0",
+  "display_name": "Maven MCP Server",
+  "description": "Query Maven Central for dependency versions, updates, and project health analysis. Check for outdated dependencies, compare versions, and get upgrade recommendations.",
+  "long_description": "A powerful MCP server that connects AI assistants to Maven Central, enabling:\n\n- **Version Lookup**: Get latest stable, RC, beta, and alpha versions for any Maven dependency\n- **Version Verification**: Check if specific versions exist on Maven Central\n- **Update Detection**: Compare your current versions against latest and classify updates (major/minor/patch)\n- **Bulk Analysis**: Check multiple dependencies at once for efficient project analysis\n- **Age Analysis**: Classify dependencies as current, fresh, aging, stale, or outdated\n- **Health Scoring**: Get an overall health score (A-F grade) for your project's dependencies\n\nSupports Maven coordinates from pom.xml, build.gradle, and any JVM build system.",
+  "author": {
+    "name": "Lukas",
+    "url": "https://github.com/lukaesch"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lukaesch/maven-mcp"
+  },
+  "homepage": "https://github.com/lukaesch/maven-mcp",
+  "keywords": [
+    "maven",
+    "dependency",
+    "java",
+    "kotlin",
+    "spring",
+    "gradle",
+    "version",
+    "update"
+  ],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/maven-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/server/maven-mcp",
+      "platform_overrides": {
+        "win32": {
+          "command": "${__dirname}/server/maven-mcp.exe"
+        }
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "get_latest_version",
+      "description": "Get the latest version of a Maven dependency from Maven Central with stability classification (stable, RC, beta, alpha, milestone)"
+    },
+    {
+      "name": "check_version_exists",
+      "description": "Verify if a specific version of a Maven dependency exists on Maven Central and get its stability classification"
+    },
+    {
+      "name": "compare_versions",
+      "description": "Compare your current version against the latest version, determine if you're outdated, and classify the update type (major/minor/patch)"
+    },
+    {
+      "name": "check_multiple_dependencies",
+      "description": "Bulk check multiple Maven dependencies for available updates. Efficient for analyzing entire projects."
+    },
+    {
+      "name": "analyze_dependency_age",
+      "description": "Analyze how outdated a dependency is, classifying it as current, fresh, aging, stale, or outdated based on versions behind"
+    },
+    {
+      "name": "analyze_project_health",
+      "description": "Comprehensive health analysis of all project dependencies with overall health score and grade (A-F)"
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"]
+  }
+}

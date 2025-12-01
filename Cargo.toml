@@ -1,0 +1,47 @@
+[package]
+name = "maven-mcp"
+version = "0.1.0"
+edition = "2021"
+authors = ["Lukas <github.com/lukaesch>"]
+description = "MCP server for querying Maven Central - dependency versions, updates, and project health analysis"
+license = "MIT"
+repository = "https://github.com/lukaesch/maven-mcp"
+keywords = ["mcp", "maven", "dependency", "ai"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+# MCP Server
+rmcp = { version = "0.8", features = ["server", "transport-io"] }
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "1.0"
+
+# HTTP & XML
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+quick-xml = { version = "0.37", features = ["serialize"] }
+
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Async utilities
+futures = "0.3"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

@@ -1,0 +1,147 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: maven-central-mcp-linux-x64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: maven-central-mcp-linux-arm64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            name: maven-central-mcp-darwin-x64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            name: maven-central-mcp-darwin-arm64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: maven-central-mcp-windows-x64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mv target/${{ matrix.target }}/release/maven-central-mcp target/${{ matrix.target }}/release/${{ matrix.name }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mv target/${{ matrix.target }}/release/maven-central-mcp.exe target/${{ matrix.target }}/release/${{ matrix.name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: target/${{ matrix.target }}/release/${{ matrix.name }}
+
+  package:
+    name: Package MCPB Bundle
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create bundle directory
+        run: |
+          mkdir -p bundle/server
+
+          # Copy manifest
+          cp manifest.json bundle/
+
+          # Copy binaries with correct names for each platform
+          cp artifacts/maven-central-mcp-linux-x64/maven-central-mcp-linux-x64 bundle/server/maven-central-mcp-linux-x64
+          cp artifacts/maven-central-mcp-linux-arm64/maven-central-mcp-linux-arm64 bundle/server/maven-central-mcp-linux-arm64
+          cp artifacts/maven-central-mcp-darwin-x64/maven-central-mcp-darwin-x64 bundle/server/maven-central-mcp-darwin-x64
+          cp artifacts/maven-central-mcp-darwin-arm64/maven-central-mcp-darwin-arm64 bundle/server/maven-central-mcp-darwin-arm64
+          cp artifacts/maven-central-mcp-windows-x64.exe/maven-central-mcp-windows-x64.exe bundle/server/maven-central-mcp.exe
+
+          # For Unix platforms, we need a dispatcher script
+          cat > bundle/server/maven-central-mcp << 'EOF'
+          #!/bin/bash
+          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+          ARCH=$(uname -m)
+          OS=$(uname -s)
+
+          if [ "$OS" = "Darwin" ]; then
+            if [ "$ARCH" = "arm64" ]; then
+              exec "$SCRIPT_DIR/maven-central-mcp-darwin-arm64" "$@"
+            else
+              exec "$SCRIPT_DIR/maven-central-mcp-darwin-x64" "$@"
+            fi
+          elif [ "$OS" = "Linux" ]; then
+            if [ "$ARCH" = "aarch64" ]; then
+              exec "$SCRIPT_DIR/maven-central-mcp-linux-arm64" "$@"
+            else
+              exec "$SCRIPT_DIR/maven-central-mcp-linux-x64" "$@"
+            fi
+          else
+            echo "Unsupported platform: $OS $ARCH" >&2
+            exit 1
+          fi
+          EOF
+
+          chmod +x bundle/server/maven-central-mcp
+          chmod +x bundle/server/maven-central-mcp-*
+
+      - name: Create MCPB bundle
+        run: |
+          cd bundle
+          zip -r ../maven-central.mcpb .
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-central.mcpb
+          path: maven-central.mcpb
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            maven-central.mcpb
+            artifacts/maven-central-mcp-linux-x64/maven-central-mcp-linux-x64
+            artifacts/maven-central-mcp-darwin-x64/maven-central-mcp-darwin-x64
+            artifacts/maven-central-mcp-darwin-arm64/maven-central-mcp-darwin-arm64
+            artifacts/maven-central-mcp-windows-x64.exe/maven-central-mcp-windows-x64.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
